@@ -1,0 +1,149 @@
+404 error json
+{
+	"code": 404,
+	"msg": "http get on resource failed with not found (404)",
+	"dtls": {
+		"code": "404 not found",
+		"msg": "FAILURE",
+		"innerErr": [
+			{
+				"code": "NEJ567",
+				"txid": ""
+			}
+		]
+	}
+}
+
+====
+Merged response from service1(cl) and service2(fc) services
+[	{
+	"clnt": {
+			"clid":"123",
+			"clName":"John"
+	}},
+	{
+	"fchistory": [
+		{
+			"fcid": "333",
+			"fctype": "A"
+		},
+		{
+			"fcid": "444",
+			"fctype": "B"
+		}
+	],
+	"fc":{
+		"fcid":"555",
+		"fctype":"C"
+	}
+	}
+]
+
+
+
+====
+scatter gather sample output
+	
+{
+
+    "0":{
+             "payload": {	"clnt": {
+			"clid":"123",
+			"clName":"John"
+	}
+},
+    "1":{
+        "payload": {	"clnt": {
+			"clid":"123",
+			"clName":"John"
+	}}
+
+}
+
+====
+scatter gather sample output 2
+{
+	"0": {
+		"payload": {
+			"clnt": {
+				"clid": "123",
+				"clName": "John"
+			}
+		}
+    },
+		"1": {
+			"payload": {
+				"fchistory": [
+					{
+						"fcid": "333",
+						"fctype": "A"
+					},
+					{
+						"fcid": "444",
+						"fctype": "B"
+					}
+				],
+				"fc": {
+					"fcid": "555",
+					"fctype": "C"
+				}
+			}
+		}
+}
+
+dw code to merge responses from scatter gather
+
+%dw 2.0
+output application/json
+---
+client:
+(payload."0".payload.clnt ++ 
+    ftc: payload."1".payload.fc) ++ 
+    ftcH: payload."1".payload.fchistory
+
+	
+====
+scatter gather output (error payload is set using on error continue handler for second service call)
+{
+	"0": {
+		"payload": {
+			"client": {
+				"clientId": "123",
+				"clientName": "John"
+			}
+		}
+    },
+		"1": {
+			"payload": {
+{
+	"code": 404,
+	"message": "http get on resource failed with not found (404)",
+	"details": {
+		"code": "404 not found",
+		"message": "FAILURE",
+		"innerError": [
+			{
+				"code": "NEJ567",
+				"txid": ""
+			}
+		]
+	}
+}
+			}
+		}
+}
+
+dw code to transform sg output
+
+%dw 2.0
+output application/json
+var makefc = (pl1) -> 
+    (ftc: pl1.payload.fc) ++ 
+    (ftcH: pl1.payload.fchistory)    
+
+---
+clnt:
+(payload."0".payload.clnt) ++ 
+if(payload."1".payload."fc"?) 
+makefc(payload."1")
+else fcErr: payload."1".payload
